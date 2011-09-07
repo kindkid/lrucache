@@ -21,7 +21,7 @@ Example
 
 TTL (time-to-live)
 ==================
-    cache = LRUCache.new(:expires => 1.hour)
+    cache = LRUCache.new(:ttl => 1.hour)
     cache.store("banana", "yellow")
     cache.store("monkey", "banana", Time.now + 3.days)
     # or ...

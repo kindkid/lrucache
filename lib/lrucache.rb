@@ -4,13 +4,14 @@ require "priority_queue"
 # Not thread-safe!
 class LRUCache
 
-  attr_reader :default, :max_size
+  attr_reader :default, :max_size, :ttl
 
   def initialize(opts={})
-    @max_size = (opts[:max_size] || 100).to_i
+    @max_size = Integer(opts[:max_size] || 100)
     @default = opts[:default]
-    @expires = (opts[:expires] || 0).to_f
-    raise "max_size must be greather than zero" unless @max_size > 0
+    @ttl = Float(opts[:ttl] || 0)
+    raise "max_size must be greater than zero" unless @max_size > 0
+    raise "ttl must be positive or zero" unless @ttl >= 0
     @pqueue = PriorityQueue.new
     @data = {}
     @counter = 0
@@ -19,6 +20,7 @@ class LRUCache
   def clear
     @data.clear
     @pqueue.delete_min until @pqueue.empty?
+    @counter = 0 #might as well
   end
 
   def include?(key)
@@ -34,37 +36,47 @@ class LRUCache
     end
   end
 
-  def store(key, value, expires=nil)
-    expire_lru! unless @data.include?(key) || @data.size < @max_size
-    expiration =
-      if expires.nil?
-        (@expires > 0) ? (Time.now + @expires) : nil
-      elsif expires.is_a?(Time)
-        expires
+  def store(key, value, ttl=nil)
+    evict_lru! unless @data.include?(key) || @data.size < @max_size
+    ttl ||= @ttl
+    expires =
+      if ttl.is_a?(Time)
+        ttl
       else
-        expires = expires.to_f
-        (expires > 0) ? (Time.now + expires) : nil
+        ttl = Float(ttl)
+        (ttl > 0) ? (Time.now + ttl) : nil
       end
-    @data[key] = [value, expiration]
+    @data[key] = [value, expires]
     access(key)
   end
 
   alias :[]= :store
 
-  def fetch(key)
+  def fetch(key, ttl=nil)
     datum = @data[key]
-    return @default if datum.nil?
-    value, expires = datum
-    if expires.nil? || expires > Time.now # no expiration, or not expired
-      access(key)
+    unless datum.nil?
+      value, expires = datum
+      if expires.nil? || expires > Time.now # no expiration, or not expired
+        access(key)
+        return value
+      else # expired
+        delete(key)
+      end
+    end
+    if block_given?
+      value = yield
+      store(key, value, ttl)
       value
-    else # expired
-      delete(key)
+    else
       @default
     end
   end
 
   alias :[] :fetch
+
+  def empty?
+    size == 0
+  end
 
   def size
     @data.size
@@ -75,13 +87,13 @@ class LRUCache
   end
 
   def delete(key)
-    @data.delete(key)
     @pqueue.delete(key)
+    @data.delete(key)
   end
 
   private
 
-  def expire_lru!
+  def evict_lru!
     key, priority = @pqueue.delete_min
     @data.delete(key) unless priority.nil?
   end
