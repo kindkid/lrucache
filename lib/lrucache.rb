@@ -10,7 +10,7 @@ class LRUCache
     @max_size = Integer(opts[:max_size] || 100)
     @default = opts[:default]
     @ttl = Float(opts[:ttl] || 0)
-    raise "max_size must be greater than zero" unless @max_size > 0
+    raise "max_size must not be negative" if @max_size < 0
     raise "ttl must be positive or zero" unless @ttl >= 0
     @pqueue = PriorityQueue.new
     @data = {}
@@ -37,7 +37,7 @@ class LRUCache
   end
 
   def store(key, value, ttl=nil)
-    evict_lru! unless @data.include?(key) || @data.size < @max_size
+    evict_lru! unless @data.include?(key) || @data.size < max_size
     ttl ||= @ttl
     expires =
       if ttl.is_a?(Time)
