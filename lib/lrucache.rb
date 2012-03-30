@@ -1,5 +1,5 @@
 require "lrucache/version"
-require "priority_queue"
+require "lrucache/priority_queue"
 
 # Not thread-safe!
 class LRUCache
@@ -19,7 +19,7 @@ class LRUCache
 
   def clear
     @data.clear
-    @pqueue.delete_min until @pqueue.empty?
+    @pqueue.clear
     @counter = 0 #might as well
   end
 
@@ -94,12 +94,12 @@ class LRUCache
   private
 
   def evict_lru!
-    key, priority = @pqueue.delete_min
+    key, priority = @pqueue.pop
     @data.delete(key) unless priority.nil?
   end
 
   def access(key)
-    @pqueue.change_priority(key, @counter += 1)
+    @pqueue.set(key, @counter += 1)
   end
 
 end

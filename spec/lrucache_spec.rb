@@ -418,10 +418,10 @@ describe LRUCache do
       c = LRUCache.new
       c[:a] = 'a'
       c.instance_variable_get(:@data).should include(:a)
-      c.instance_variable_get(:@pqueue).should include([:a,1])
+      c.instance_variable_get(:@pqueue).should include(:a)
       c.delete(:a)
       c.instance_variable_get(:@data).should_not include(:a)
-      c.instance_variable_get(:@pqueue).should_not include([:a,1])
+      c.instance_variable_get(:@pqueue).should_not include(:a)
     end
   end
 
@@ -432,12 +432,27 @@ describe LRUCache do
       c[2] = 'b'
       c[3] = 'c'
       c[4] = 'd'
+      c[5] = 'e'
       c[:dne1].should be_nil # Doesn't affect LRU.
+      c.instance_variable_get(:@pqueue).to_a.should == [5,4,3,2,1]
+      c.instance_variable_get(:@pqueue).instance_variable_get(:@root).value.should == 5
       c[2].should == 'b'
+      c.instance_variable_get(:@pqueue).to_a.should == [2,5,4,3,1]
+      c.instance_variable_get(:@pqueue).instance_variable_get(:@root).value.should == 2
       c[1].should == 'a'
+      c.instance_variable_get(:@pqueue).to_a.should == [1,2,5,4,3]
+      c.instance_variable_get(:@pqueue).instance_variable_get(:@root).value.should == 1
       c[3].should == 'c'
+      c.instance_variable_get(:@pqueue).to_a.should == [3,1,2,5,4]
+      c.instance_variable_get(:@pqueue).instance_variable_get(:@root).value.should == 3
       c[4].should == 'd'
+      c.instance_variable_get(:@pqueue).to_a.should == [4,3,1,2,5]
+      c.instance_variable_get(:@pqueue).instance_variable_get(:@root).value.should == 4
       c[:dne2].should be_nil # Doesn't affect LRU.
+      c.instance_variable_get(:@pqueue).to_a.should == [4,3,1,2,5]
+      c.instance_variable_get(:@pqueue).instance_variable_get(:@root).value.should == 4
+      c.keys.sort.should == [1,2,3,4,5]
+      c.send(:evict_lru!)
       c.keys.sort.should == [1,2,3,4]
       c.send(:evict_lru!)
       c.keys.sort.should == [1,3,4]
@@ -464,7 +479,7 @@ describe LRUCache do
         end
         expected_size = [expected_size,0].max
         c.instance_variable_get(:@data).size.should == expected_size
-        c.instance_variable_get(:@pqueue).count.should == expected_size
+        c.instance_variable_get(:@pqueue).size.should == expected_size
       end
     end
   end
