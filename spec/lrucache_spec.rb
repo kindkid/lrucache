@@ -197,7 +197,8 @@ describe LRUCache do
         c = LRUCache.new(:ttl => 0)
         c.store(:a,'a')
         stored = c.instance_variable_get(:@data)[:a]
-        stored.should == ['a', nil]
+        stored.value.should == 'a'
+        stored.expiration.should == nil
       end
     end
     context "when ttl is not given and the cache's default ttl is greater than zero" do
@@ -206,7 +207,8 @@ describe LRUCache do
         now = Time.now
         Timecop.freeze(now) { c.store(:a,'a') }
         stored = c.instance_variable_get(:@data)[:a]
-        stored.last.should == now + 1
+        stored.value.should == 'a'
+        stored.expiration.should == now + 1
       end
     end
     context "when ttl is a Time" do
@@ -215,7 +217,8 @@ describe LRUCache do
         ttl = Time.now + 246
         c.store(:a, 'a', ttl)
         stored = c.instance_variable_get(:@data)[:a]
-        stored.last.should == ttl
+        stored.value.should == 'a'
+        stored.expiration.should == ttl
       end
     end
     context "when ttl can be parsed as a float" do
@@ -224,7 +227,8 @@ describe LRUCache do
         now = Time.now
         Timecop.freeze(now) { c.store(:a, 'a', "98.6") }
         stored = c.instance_variable_get(:@data)[:a]
-        stored.last.should == now + 98.6
+        stored.value.should == 'a'
+        stored.expiration.should == now + 98.6
       end
     end
     context "when ttl cannot be parsed as a float" do
@@ -302,27 +306,27 @@ describe LRUCache do
       end
     end
     context "when a block is given" do
-      context "when the key does not exist" do
+      context "and the key does not exist" do
         it "should call the block and store and return the result" do
           c = LRUCache.new
           ttl = double(:ttl)
           result = double(:result)
-          c.should_receive(:store).with(:a, result, ttl)
+          c.should_receive(:store).with(:a, result, ttl).and_return(result)
           c.fetch(:a, ttl){ result }.should == result
         end
       end
-      context "when the key has been evicted" do
+      context "and the key has been evicted" do
         it "should call the block and store and return the result" do
           c = LRUCache.new
           c[:a] = 'a'
           c.send(:evict_lru!)
           ttl = double(:ttl)
           result = double(:result)
-          c.should_receive(:store).with(:a, result, ttl)
+          c.should_receive(:store).with(:a, result, ttl).and_return(result)
           c.fetch(:a, ttl){ result }.should == result
         end
       end
-      context "when the key has expired" do
+      context "and the key has expired" do
         it "should call the block and store and return the result" do
           c = LRUCache.new
           now = Time.now
@@ -330,12 +334,49 @@ describe LRUCache do
           Timecop.freeze(now + 20) do
             ttl = double(:ttl)
             result = double(:result)
-            c.should_receive(:store).with(:a, result, ttl)
+            c.should_receive(:store).with(:a, result, ttl).and_return(result)
             c.fetch(:a, ttl){ result }.should == result
           end
         end
       end
-      context "when the key is present and un-expired" do
+      context 'and the key has "soft"-expired' do
+        before(:each) do
+          @c = LRUCache.new
+          @c.store(:a, 'a', :ttl => 10_000, :soft_ttl => Time.now - 60, :retry_delay => 10)
+          @args = {:ttl => 10_000, :soft_ttl => 60, :retry_delay => 10}
+        end
+        context "and the block raises a runtime exception" do
+          it "should continue to return the old value" do
+            @c.should_not_receive(:store)
+            @c.fetch(:a, @args) { raise "no!" }.should == 'a'
+          end
+          it "should extend the soft-expiration by retry_delay" do
+            Timecop.freeze(Time.now) do
+              data = @c.instance_variable_get(:@data)
+              original_soft_expiration = data[:a].soft_expiration
+              @c.should_not_receive(:store)
+              @c.fetch(:a, @args) { raise "no!" }
+              data = @c.instance_variable_get(:@data)
+              data[:a].soft_expiration.should == Time.now + @args[:retry_delay]
+            end
+          end
+        end
+        context "and the block raises a fatal exception" do
+          it "should allow the exception through" do
+            expect {
+              @c.fetch(:a, @args) { raise(NoMemoryError,"panic!") }
+            }.to raise_exception(NoMemoryError)
+          end
+        end
+        context "and the block does not raise an exception" do
+          it "should call the block and store and return the result" do
+            result = double(:result)
+            @c.should_receive(:store).with(:a, result, @args).and_return(result)
+            @c.fetch(:a, @args) { result }.should == result
+          end
+        end
+      end
+      context "and the key is present and un-expired" do
         it "should return the cached value without calling the block" do
           c = LRUCache.new(:ttl => nil)
           c[:a] = 'a'

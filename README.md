@@ -14,8 +14,8 @@ Example
     puts cache[2] # b
     puts cache[1] # a
     puts cache[3] # c
-    puts cache[:does_not_exist] # 42, has no effect on LRU.
-    cache[4] = 'd' # Out of space! Throws out the least-recently used (2 => 'b').
+    puts cache[:does_not_exist] # 42, has no effect on LRU
+    cache[4] = 'd' # Out of space! Throws out the least-recently used (2 => 'b')
     puts cache.keys # [1,3,4]
 
 
@@ -38,3 +38,28 @@ TTL (time-to-live)
     # Three days later ...
     cache.fetch("banana") # nil
     cache.fetch("monkey") # nil
+
+SOFT_TTL
+========
+Allows you to have two TTLs when calling fetch with a block.
+After the soft-ttl expires, the block is called to refresh the value.
+If the block completes normally, the value is replaced and expirations reset.
+If the block raises a fatal (non-RuntimeError) exception, it bubbles up. But,
+if the block raises a RuntimeError, the cached value is kept and used a little
+longer, and the soft-ttl is postponed retry_delay into the future. If the block
+is not called successfully before the normal TTL expires, then the cached value
+expires and the block is called for a new value, but exceptions are not handled.
+
+    cache = LRUCache.new(:ttl => 1.hour,
+                         :soft_ttl => 30.minutes,
+                         :retry_delay => 1.minute)
+    cache.fetch("banana") { "yellow" } # "yellow"
+    cache.fetch("banana") { "george" } # "yellow"
+
+    # 30 minutes later ...
+    cache.fetch("banana") { raise "ruckus" } # "yellow"
+    cache.fetch("banana") { "george" } # "yellow"
+
+    # 1 more minute later ...
+    cache.fetch("banana") { "george" } # "george"
+    cache.fetch("banana") { "barney" } # "george"

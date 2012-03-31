@@ -4,14 +4,19 @@ require "priority_queue"
 # Not thread-safe!
 class LRUCache
 
-  attr_reader :default, :max_size, :ttl
+  attr_reader :default, :max_size, :ttl, :soft_ttl, :retry_delay
 
   def initialize(opts={})
     @max_size = Integer(opts[:max_size] || 100)
     @default = opts[:default]
     @ttl = Float(opts[:ttl] || 0)
+    @soft_ttl = Float(opts[:soft_ttl] || 0)
+    @retry_delay = Float(opts[:retry_delay] || 0)
     raise "max_size must not be negative" if @max_size < 0
-    raise "ttl must be positive or zero" unless @ttl >= 0
+    raise "ttl must not be negative" if @ttl < 0
+    raise "soft_ttl must not be negative" if @soft_ttl < 0
+    raise "retry_delay must not be negative" if @retry_delay < 0
+
     @pqueue = PriorityQueue.new
     @data = {}
     @counter = 0
@@ -26,49 +31,59 @@ class LRUCache
   def include?(key)
     datum = @data[key]
     return false if datum.nil?
-    value, expires = datum
-    if expires.nil? || expires > Time.now # no expiration, or not expired
-      access(key)
-      true
-    else # expired
+    if datum.expired?
       delete(key)
       false
+    else
+      access(key)
+      true
     end
   end
 
-  def store(key, value, ttl=nil)
+  def store(key, value, args={})
     evict_lru! unless @data.include?(key) || @data.size < max_size
-    ttl ||= @ttl
-    expires =
-      if ttl.is_a?(Time)
-        ttl
-      else
-        ttl = Float(ttl)
-        (ttl > 0) ? (Time.now + ttl) : nil
-      end
-    @data[key] = [value, expires]
+    ttl, soft_ttl, retry_delay = extract_arguments(args)
+    expiration = expiration_date(ttl)
+    soft_expiration = expiration_date(soft_ttl)
+    @data[key] = Datum.new(value, expiration, soft_expiration)
     access(key)
+    value
   end
 
   alias :[]= :store
 
-  def fetch(key, ttl=nil)
+  def fetch(key, args={})
     datum = @data[key]
-    unless datum.nil?
-      value, expires = datum
-      if expires.nil? || expires > Time.now # no expiration, or not expired
-        access(key)
-        return value
-      else # expired
-        delete(key)
+    if datum.nil?
+      if block_given?
+        store(key, value = yield, args)
+      else
+        @default
       end
-    end
-    if block_given?
-      value = yield
-      store(key, value, ttl)
-      value
+    elsif datum.expired?
+      delete(key)
+      if block_given?
+        store(key, value = yield, args)
+      else
+        @default
+      end
+    elsif datum.soft_expired?
+      if block_given?
+        begin
+          store(key, value = yield, args)
+        rescue RuntimeError => e
+          access(key)
+          ttl, soft_ttl, retry_delay = extract_arguments(args)
+          datum.soft_expiration = (Time.now + retry_delay) if retry_delay > 0
+          datum.value
+        end
+      else
+        access(key)
+        datum.value
+      end
     else
-      @default
+      access(key)
+      datum.value
     end
   end
 
@@ -92,6 +107,46 @@ class LRUCache
   end
 
   private
+
+  class Datum
+    attr_reader :value, :expiration, :soft_expiration
+    attr_writer :soft_expiration
+    def initialize(value, expiration, soft_expiration)
+      @value = value
+      @expiration = expiration
+      @soft_expiration = soft_expiration
+    end
+
+    def expired?
+      !@expiration.nil? && @expiration <= Time.now
+    end
+
+    def soft_expired?
+      !@soft_expiration.nil? && @soft_expiration <= Time.now
+    end
+  end
+
+  def expiration_date(ttl)
+    if ttl.is_a?(Time)
+      ttl
+    else
+      ttl = Float(ttl)
+      (ttl > 0) ? (Time.now + ttl) : nil
+    end
+  end
+
+  def extract_arguments(args)
+    if args.is_a?(Hash)
+      ttl = args[:ttl] || @ttl
+      soft_ttl = args[:soft_ttl] || @soft_ttl
+      retry_delay = args[:retry_delay] || @retry_delay
+      [ttl, soft_ttl, retry_delay]
+    else
+      # legacy arg
+      ttl = args || @ttl
+      [ttl, @soft_ttl, @retry_delay]
+    end
+  end
 
   def evict_lru!
     key, priority = @pqueue.delete_min
