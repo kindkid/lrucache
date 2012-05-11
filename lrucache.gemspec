@@ -10,6 +10,7 @@ Gem::Specification.new do |s|
   s.homepage    = ""
   s.summary     = "A simple LRU-cache based on a hash and priority queue"
   s.description = s.summary
+  s.license     = "MIT"
 
   s.rubyforge_project = "lrucache"
 
