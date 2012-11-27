@@ -63,6 +63,16 @@ expires and the block is called for a new value, but exceptions are not handled.
     # 1 more minute later ...
     cache.fetch("banana") { "george" } # "george"
     cache.fetch("banana") { "barney" } # "george"
+    
+Eviction Handler
+================
+Allows you to specify a block that gets called whenever a value gets evicted from
+the cache because it's the least recently used. Example:
+
+    cache = LRUCache.new(:max_size => 2, :eviction_handler => Proc.new {|value| value.shave! })
+    cache.store(yak)
+    cache.store(dog)
+    cache.store(cat) # --> shaves the yak as you would expect!
 
 ## Contributing
 

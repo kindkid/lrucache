@@ -9,6 +9,7 @@ class LRUCache
   def initialize(opts={})
     @max_size = Integer(opts[:max_size] || 100)
     @default = opts[:default]
+    @eviction_handler = opts[:eviction_handler]
     @ttl = Float(opts[:ttl] || 0)
     @soft_ttl = Float(opts[:soft_ttl] || 0)
     @retry_delay = Float(opts[:retry_delay] || 0)
@@ -150,7 +151,10 @@ class LRUCache
 
   def evict_lru!
     key, priority = @pqueue.delete_min
-    @data.delete(key) unless priority.nil?
+    unless priority.nil?
+      datum = @data.delete(key)
+      @eviction_handler.call(datum.value) if @eviction_handler && datum
+    end
   end
 
   def access(key)
