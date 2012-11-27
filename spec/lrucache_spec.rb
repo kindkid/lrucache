@@ -156,7 +156,7 @@ describe LRUCache do
       end
       context "when the cache is full" do
         before(:each) do
-          @cache = LRUCache.new(:max_size => 2)
+          @cache = LRUCache.new(:max_size => 2, :eviction_handler => Proc.new {|value| value << 'foo' })
           @cache[:b] = 'b'
           @cache[:c] = 'c'
           @lru = :b
@@ -174,6 +174,12 @@ describe LRUCache do
           it "should update the key's access stamp" do
             @cache.should_receive(:access).with(:a)
             @cache.store(:a, 'a')
+          end
+          it "should call the eviction handler" do
+            value = @cache.fetch(:b)
+            @cache.fetch(:c) # making b the lru again
+            value.should_receive(:<<).with('foo')
+            @cache.store(:a, 'a')            
           end
         end
         context "and the key is present" do
