@@ -477,6 +477,14 @@ describe LRUCache do
       c.instance_variable_get(:@pqueue).should_not include([:a,1])
     end
 
+    it "should return the value associated with the key" do
+      c = LRUCache.new
+      c[:a] = 'a'
+      c.delete(:a).should == 'a'
+      c.delete(:a).should be_nil
+      c.delete(:b).should be_nil
+    end
+
     it "should not call the eviction handler" do
       c = LRUCache.new(:eviction_handler => lambda { raise 'test failed' })
       c[:a] = 'a'

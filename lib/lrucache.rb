@@ -104,7 +104,8 @@ class LRUCache
 
   def delete(key)
     @pqueue.delete(key)
-    @data.delete(key)
+    datum = @data.delete(key)
+    datum.value unless datum.nil?
   end
 
   private
