@@ -220,7 +220,7 @@ describe LRUCache do
         Timecop.freeze(now) { c.store(:a,'a') }
         stored = c.instance_variable_get(:@data)[:a]
         stored.value.should == 'a'
-        stored.expiration.should == now + 1
+        stored.expiration.to_f.should == (now + 1).to_f
       end
     end
     context "when ttl is a Time" do
@@ -240,7 +240,7 @@ describe LRUCache do
         Timecop.freeze(now) { c.store(:a, 'a', "98.6") }
         stored = c.instance_variable_get(:@data)[:a]
         stored.value.should == 'a'
-        stored.expiration.should == now + 98.6
+        stored.expiration.to_f.should == (now + 98.6).to_f
       end
     end
     context "when ttl cannot be parsed as a float" do

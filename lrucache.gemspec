@@ -19,12 +19,12 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ["lib"]
   s.add_dependency "PriorityQueue", '~> 0.1.2'
-  
-  s.add_development_dependency "rspec", "~> 2.6.0"
-  s.add_development_dependency "simplecov", "~> 0.4.2"
-  s.add_development_dependency("rb-fsevent", "~> 0.4.3") if RUBY_PLATFORM =~ /darwin/i
-  s.add_development_dependency "guard", "~> 0.6.2"
-  s.add_development_dependency "guard-bundler", "~> 0.1.3"
-  s.add_development_dependency "guard-rspec", "~> 0.4.2"
-  s.add_development_dependency "timecop", "~> 0.3.5"
+
+  s.add_development_dependency "rspec", "~> 2.12.0"
+  s.add_development_dependency "simplecov", "~> 0.7.1"
+  s.add_development_dependency("rb-fsevent", "~> 0.9.2") if RUBY_PLATFORM =~ /darwin/i
+  s.add_development_dependency "guard", "~> 1.5.4"
+  s.add_development_dependency "guard-bundler", "~> 1.0.0"
+  s.add_development_dependency "guard-rspec", "~> 2.2.1"
+  s.add_development_dependency "timecop", "~> 0.5.3"
 end
