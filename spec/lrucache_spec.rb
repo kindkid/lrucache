@@ -54,6 +54,12 @@ describe LRUCache do
       c.instance_variable_get(:@data).should be_empty
       c.instance_variable_get(:@pqueue).should be_empty
     end
+
+    it "should not call the eviction handler" do
+      c = LRUCache.new(:eviction_handler => lambda { raise 'test failed' })
+      c[:a] = 'a'
+      expect { c.clear }.to_not raise_exception
+    end
   end
 
   describe ".include?(key)" do
@@ -156,9 +162,11 @@ describe LRUCache do
       end
       context "when the cache is full" do
         before(:each) do
-          @cache = LRUCache.new(:max_size => 2, :eviction_handler => Proc.new {|value| value << 'foo' })
-          @cache[:b] = 'b'
-          @cache[:c] = 'c'
+          @cache = LRUCache.new(
+            :max_size => 2,
+            :eviction_handler => lambda {|value| value << ' evicted' })
+          @cache[:b] = @b = 'b'
+          @cache[:c] = @c = 'c'
           @lru = :b
         end
         context "and the key is not present" do
@@ -176,10 +184,8 @@ describe LRUCache do
             @cache.store(:a, 'a')
           end
           it "should call the eviction handler" do
-            value = @cache.fetch(:b)
-            @cache.fetch(:c) # making b the lru again
-            value.should_receive(:<<).with('foo')
-            @cache.store(:a, 'a')            
+            @cache.store(:a, 'a')
+            @b.should == 'b evicted'
           end
         end
         context "and the key is present" do
@@ -469,6 +475,12 @@ describe LRUCache do
       c.delete(:a)
       c.instance_variable_get(:@data).should_not include(:a)
       c.instance_variable_get(:@pqueue).should_not include([:a,1])
+    end
+
+    it "should not call the eviction handler" do
+      c = LRUCache.new(:eviction_handler => lambda { raise 'test failed' })
+      c[:a] = 'a'
+      expect { c.delete(:a) }.to_not raise_exception
     end
   end
 
