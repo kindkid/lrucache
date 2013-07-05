@@ -10,8 +10,9 @@ describe LRUCache do
     it "should raise an exception if :max_size parameter can't be converted to an integer" do
       expect { LRUCache.new(:max_size => "moocow") }.to raise_exception
     end
-    it "should raise an exception if :max_size parameter is converted to a negative integer" do
+    it "should raise an exception if :max_size parameter is converted to a non-positive integer" do
       expect { LRUCache.new(:max_size => -1) }.to raise_exception
+      expect { LRUCache.new(:max_size => 0) }.to raise_exception
     end
 
     it "should default :default to nil" do

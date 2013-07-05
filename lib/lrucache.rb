@@ -13,7 +13,7 @@ class LRUCache
     @ttl = Float(opts[:ttl] || 0)
     @soft_ttl = Float(opts[:soft_ttl] || 0)
     @retry_delay = Float(opts[:retry_delay] || 0)
-    raise "max_size must not be negative" if @max_size < 0
+    raise "max_size must be greater than 0" if @max_size < 1
     raise "ttl must not be negative" if @ttl < 0
     raise "soft_ttl must not be negative" if @soft_ttl < 0
     raise "retry_delay must not be negative" if @retry_delay < 0
