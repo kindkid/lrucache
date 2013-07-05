@@ -27,4 +27,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency "guard-bundler", "~> 1.0.0"
   s.add_development_dependency "guard-rspec", "~> 2.2.1"
   s.add_development_dependency "timecop", "~> 0.5.3"
+  s.add_development_dependency "rake", "10.1.0"
 end
